@@ -130,28 +130,46 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        data = {
-            "amount": amount,
-            "direction": "CALL",
-            "asset": symbol,
-            "time": 5,  # Default trade duration in minutes
-            "demo": self.demo_mode
-        }
-        
-        if take_profit > 0:
-            data["take_profit"] = take_profit
-        
-        if stop_loss > 0:
-            data["stop_loss"] = stop_loss
-        
-        response = self._make_request("POST", "/signal/trade", data)
-        
-        self.logger.info(f"Placed BUY (CALL) order for {symbol}, amount={amount}")
-        order_id = response.get("order_id")
-        if order_id is None:
-            self.logger.warning(f"No order ID received in response: {response}")
+        # Intenta el método para la API AllCashBroker descrito por el usuario
+        try:
+            import requests
+            self.logger.info(f"Enviando orden directamente a AllCashBroker via requests")
+            
+            data = {
+                "amount": amount,
+                "direction": "CALL",
+                "asset": symbol,
+                "time": 5,  # Default trade duration in minutes
+                "demo": self.demo_mode
+            }
+            
+            headers = {
+                "Authorization": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            r = requests.post(
+                "https://allcash.site/api/v1.1/signal/trade", 
+                json=data, 
+                headers=headers
+            )
+            
+            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            
+            if r.status_code == 200:
+                response = r.json()
+                # Convertir a string vacío u obtener el ID del orden si está disponible
+                return str(response.get("order_id", ""))
+            else:
+                self.logger.error(f"Error al enviar orden: {r.status_code} - {r.text}")
+                return ""
+                
+        except Exception as e:
+            self.logger.error(f"Error en solicitud directa: {str(e)}")
             return ""
-        return order_id
+        
+        # Este código ya no se ejecutará
+        return ""
     
     def place_sell_order(self, symbol: str, amount: float, take_profit: float = 0, stop_loss: float = 0) -> str:
         """
@@ -166,28 +184,46 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        data = {
-            "amount": amount,
-            "direction": "PUT",
-            "asset": symbol,
-            "time": 5,  # Default trade duration in minutes
-            "demo": self.demo_mode
-        }
-        
-        if take_profit > 0:
-            data["take_profit"] = take_profit
-        
-        if stop_loss > 0:
-            data["stop_loss"] = stop_loss
-        
-        response = self._make_request("POST", "/signal/trade", data)
-        
-        self.logger.info(f"Placed SELL (PUT) order for {symbol}, amount={amount}")
-        order_id = response.get("order_id")
-        if order_id is None:
-            self.logger.warning(f"No order ID received in response: {response}")
+        # Intenta el método para la API AllCashBroker descrito por el usuario
+        try:
+            import requests
+            self.logger.info(f"Enviando orden de venta directamente a AllCashBroker via requests")
+            
+            data = {
+                "amount": amount,
+                "direction": "PUT",
+                "asset": symbol,
+                "time": 5,  # Default trade duration in minutes
+                "demo": self.demo_mode
+            }
+            
+            headers = {
+                "Authorization": self.api_key,
+                "Content-Type": "application/json"
+            }
+            
+            r = requests.post(
+                "https://allcash.site/api/v1.1/signal/trade", 
+                json=data, 
+                headers=headers
+            )
+            
+            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            
+            if r.status_code == 200:
+                response = r.json()
+                # Convertir a string vacío u obtener el ID del orden si está disponible
+                return str(response.get("order_id", ""))
+            else:
+                self.logger.error(f"Error al enviar orden de venta: {r.status_code} - {r.text}")
+                return ""
+                
+        except Exception as e:
+            self.logger.error(f"Error en solicitud directa de venta: {str(e)}")
             return ""
-        return order_id
+        
+        # Este código ya no se ejecutará
+        return ""
     
     def close_order(self, order_id: str) -> bool:
         """
