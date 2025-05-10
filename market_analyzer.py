@@ -77,7 +77,7 @@ class MarketAnalyzer:
                 
                 handler = TA_Handler(
                     symbol=tv_symbol,
-                    exchange="OANDA",  # Most common forex exchange in TradingView
+                    exchange="FX_IDC",  # Using FX_IDC exchange as in user code
                     screener="forex",
                     interval=self.interval
                 )
