@@ -71,10 +71,10 @@ def main():
         scheduler = Scheduler(
             market_analyzer=market_analyzer,
             trade_executor=trade_executor,
-            analysis_interval_minutes=config.get("schedule_interval_minutes", 60)
+            analysis_interval_minutes=config.get("schedule_interval_minutes", 1)
         )
         logger.info("Scheduler initialized with %d minute intervals", 
-                   config.get("schedule_interval_minutes", 60))
+                   config.get("schedule_interval_minutes", 1))
         
         # Start the bot
         logger.info("Starting the forex trading bot...")

@@ -88,7 +88,8 @@ class Scheduler:
                     self.logger.info("Daily trade counter reset")
                 
                 # Sleep until next cycle
-                self.logger.info(f"Next analysis in {self.analysis_interval_seconds // 60} minutes")
+                interval_text = "minute" if self.analysis_interval_seconds == 60 else "minutes"
+                self.logger.info(f"Next analysis in {self.analysis_interval_seconds // 60} {interval_text}")
                 
                 # Check if we should still be running every second
                 for _ in range(self.analysis_interval_seconds):
