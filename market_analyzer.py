@@ -128,7 +128,10 @@ class MarketAnalyzer:
         try:
             handler = self.handlers[symbol]
             analysis = handler.get_analysis()
-            
+            if analysis is None:
+                self.logger.warning(f"Received None analysis for {symbol}")
+                return None
+                
             # Extract indicators
             indicators = analysis.indicators
             
@@ -153,9 +156,12 @@ class MarketAnalyzer:
             
             if signal_type != "NEUTRAL":
                 # Create and return a signal
+                # Ensure signal_type is one of the accepted literals
+                valid_signal_type = "BUY" if signal_type == "BUY" else "SELL" if signal_type == "SELL" else "NEUTRAL"
+                
                 signal = TradingSignal(
                     symbol=symbol,
-                    signal_type=signal_type,  # "BUY", "SELL", or "NEUTRAL"
+                    signal_type=valid_signal_type,  # "BUY", "SELL", or "NEUTRAL"
                     strength=signal_strength,  # 0.0 to 1.0
                     price=close_price,
                     rsi=rsi,

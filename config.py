@@ -13,7 +13,7 @@ DEFAULT_CONFIG = {
     "demo_mode": True,  # Set to False for real trading
     "forex_pairs": ["GBP/USD", "USD/CHF", "USD/CAD"],
     "analysis_interval": "1h",  # 1h, 4h, 1d etc.
-    "schedule_interval_minutes": 60,
+    "schedule_interval_minutes": 1,
     "trade_amount": 100,  # Amount in base currency
     "take_profit_pips": 20,
     "stop_loss_pips": 10,
