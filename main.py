@@ -76,6 +76,20 @@ def main():
         logger.info("Scheduler initialized with %d minute intervals", 
                    config.get("schedule_interval_minutes", 1))
         
+        # Enviar una orden de prueba en modo demo
+        logger.info("Enviando una orden de prueba en la cuenta demo...")
+        trade_id = broker_api.place_buy_order(
+            symbol="EUR/USD",
+            amount=1.0,  # Una cantidad pequeña para prueba
+            take_profit=0,
+            stop_loss=0
+        )
+        
+        if trade_id:
+            logger.info(f"Orden de prueba enviada exitosamente! ID: {trade_id}")
+        else:
+            logger.warning("No se pudo enviar la orden de prueba.")
+        
         # Start the bot
         logger.info("Starting the forex trading bot...")
         scheduler.start()
