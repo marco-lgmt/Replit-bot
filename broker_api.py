@@ -16,8 +16,8 @@ class AllCashBrokerAPI:
     Handles authentication and trade execution.
     """
     
-    # Base API URL - Replace with actual URL
-    BASE_URL = "https://api.allcashbroker.com/v1"  # Example URL, adjust to actual API endpoint
+    # Base API URL for AllCashBroker
+    BASE_URL = "https://allcash.site/api/v1.1"  # API URL from user code
     
     def __init__(self, api_key: str, demo_mode: bool = True):
         """
@@ -32,17 +32,17 @@ class AllCashBrokerAPI:
         self.demo_mode = demo_mode
         self.session = requests.Session()
         self.session.headers.update({
-            "Authorization": f"Bearer {api_key}",
+            "Authorization": api_key,
             "Content-Type": "application/json",
             "Accept": "application/json"
         })
         
         # Set the appropriate API URL based on mode
+        # For AllCashBroker, we set the demo parameter in the request instead of URL
+        self.base_url = self.BASE_URL
         if demo_mode:
-            self.base_url = f"{self.BASE_URL}/demo"
             self.logger.info("API initialized in DEMO mode")
         else:
-            self.base_url = f"{self.BASE_URL}/live"
             self.logger.warning("API initialized in LIVE trading mode")
     
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -62,6 +62,7 @@ class AllCashBrokerAPI:
         """
         url = f"{self.base_url}{endpoint}"
         
+        response = None
         try:
             if method == "GET":
                 response = self.session.get(url, params=data)
@@ -89,8 +90,9 @@ class AllCashBrokerAPI:
         except RequestException as e:
             self.logger.error(f"API request error: {str(e)}")
             raise Exception(f"API request failed: {str(e)}")
-        except json.JSONDecodeError:
-            self.logger.error(f"Invalid JSON response from API: {response.text}")
+        except json.JSONDecodeError as jde:
+            if response:
+                self.logger.error(f"Invalid JSON response from API: {response.text}")
             raise Exception("Invalid JSON response from API")
         except Exception as e:
             self.logger.error(f"Unexpected error in API request: {str(e)}")
@@ -129,10 +131,11 @@ class AllCashBrokerAPI:
             str: Order ID if successful
         """
         data = {
-            "symbol": symbol,
-            "side": "BUY",
             "amount": amount,
-            "order_type": "MARKET"
+            "direction": "CALL",
+            "asset": symbol,
+            "time": 5,  # Default trade duration in minutes
+            "demo": self.demo_mode
         }
         
         if take_profit > 0:
@@ -141,10 +144,14 @@ class AllCashBrokerAPI:
         if stop_loss > 0:
             data["stop_loss"] = stop_loss
         
-        response = self._make_request("POST", "/orders", data)
+        response = self._make_request("POST", "/signal/trade", data)
         
-        self.logger.info(f"Placed BUY order for {symbol}, amount={amount}")
-        return response.get("order_id")
+        self.logger.info(f"Placed BUY (CALL) order for {symbol}, amount={amount}")
+        order_id = response.get("order_id")
+        if order_id is None:
+            self.logger.warning(f"No order ID received in response: {response}")
+            return ""
+        return order_id
     
     def place_sell_order(self, symbol: str, amount: float, take_profit: float = 0, stop_loss: float = 0) -> str:
         """
@@ -160,10 +167,11 @@ class AllCashBrokerAPI:
             str: Order ID if successful
         """
         data = {
-            "symbol": symbol,
-            "side": "SELL",
             "amount": amount,
-            "order_type": "MARKET"
+            "direction": "PUT",
+            "asset": symbol,
+            "time": 5,  # Default trade duration in minutes
+            "demo": self.demo_mode
         }
         
         if take_profit > 0:
@@ -172,10 +180,14 @@ class AllCashBrokerAPI:
         if stop_loss > 0:
             data["stop_loss"] = stop_loss
         
-        response = self._make_request("POST", "/orders", data)
+        response = self._make_request("POST", "/signal/trade", data)
         
-        self.logger.info(f"Placed SELL order for {symbol}, amount={amount}")
-        return response.get("order_id")
+        self.logger.info(f"Placed SELL (PUT) order for {symbol}, amount={amount}")
+        order_id = response.get("order_id")
+        if order_id is None:
+            self.logger.warning(f"No order ID received in response: {response}")
+            return ""
+        return order_id
     
     def close_order(self, order_id: str) -> bool:
         """
@@ -187,15 +199,25 @@ class AllCashBrokerAPI:
         Returns:
             bool: True if the order was closed successfully
         """
-        response = self._make_request("DELETE", f"/orders/{order_id}")
-        success = response.get("success", False)
-        
-        if success:
-            self.logger.info(f"Closed order {order_id} successfully")
-        else:
-            self.logger.warning(f"Failed to close order {order_id}")
-        
-        return success
+        # For AllCashBroker API, they might not support closing orders or use a different endpoint
+        # This is a placeholder implementation
+        try:
+            data = {
+                "order_id": order_id,
+                "demo": self.demo_mode
+            }
+            response = self._make_request("POST", "/signal/close", data)
+            success = response.get("success", False)
+            
+            if success:
+                self.logger.info(f"Closed order {order_id} successfully")
+            else:
+                self.logger.warning(f"Failed to close order {order_id}")
+            
+            return success
+        except Exception as e:
+            self.logger.error(f"Error closing order {order_id}: {str(e)}")
+            return False
     
     def get_order_status(self, order_id: str) -> Dict[str, Any]:
         """

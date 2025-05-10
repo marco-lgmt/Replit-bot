@@ -8,7 +8,7 @@ import logging
 import time
 from datetime import datetime
 
-from config import load_config
+from config import load_config, save_config
 from scheduler import Scheduler
 from market_analyzer import MarketAnalyzer
 from trade_executor import TradeExecutor
@@ -27,11 +27,16 @@ def main():
         config = load_config()
         logger.info("Configuration loaded successfully")
         
-        # Initialize broker API
-        api_key = os.environ.get("ALLCASH_API_KEY", config.get("api_key", ""))
+        # Initialize broker API with API key
+        api_key = os.environ.get("ALLCASH_API_KEY", config.get("api_key", "qrlwfzlxha"))
         if not api_key:
             logger.error("API key not found. Please set the ALLCASH_API_KEY environment variable or update config.py")
             return
+        
+        # Store API key in config for future use
+        if config.get("api_key", "") != api_key:
+            config["api_key"] = api_key
+            save_config(config)
         
         broker_api = AllCashBrokerAPI(
             api_key=api_key,
