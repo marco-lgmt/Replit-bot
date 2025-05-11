@@ -1,9 +1,8 @@
 {
     "demo_mode": true,
     "forex_pairs": [
-        "GBP/USD",
-        "USD/CHF",
-        "USD/CAD"
+        "BTCUSDT",
+        "ETHUSDT"
     ],
     "analysis_interval": "1h",
     "schedule_interval_minutes": 1,

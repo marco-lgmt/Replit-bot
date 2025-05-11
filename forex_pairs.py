@@ -1,19 +1,24 @@
 """
-Forex Pairs module for trading bot.
-Handles forex pair standardization and information.
+Trading Pairs module for trading bot.
+Handles forex and crypto pair standardization and information.
 """
 
 from typing import Dict, List
 
-# Standard forex pairs supported by the bot
+# Standard trading pairs supported by the bot
 SUPPORTED_PAIRS = [
+    # Forex pairs
     "EUR/USD", "GBP/USD", "USD/JPY", "USD/CHF", 
     "USD/CAD", "AUD/USD", "NZD/USD", "EUR/GBP",
-    "EUR/JPY", "GBP/JPY", "USD/ZAR", "USD/MXN"
+    "EUR/JPY", "GBP/JPY", "USD/ZAR", "USD/MXN",
+    # Crypto pairs
+    "BTCUSDT", "ETHUSDT", "BNBUSDT", "ADAUSDT",
+    "XRPUSDT", "SOLUSDT", "DOGEUSDT", "DOTUSDT"
 ]
 
 # Mapping between traditional notation and TradingView symbols
 TRADINGVIEW_SYMBOL_MAPPING = {
+    # Forex pairs
     "EUR/USD": "EURUSD",
     "GBP/USD": "GBPUSD",
     "USD/JPY": "USDJPY",
@@ -25,11 +30,21 @@ TRADINGVIEW_SYMBOL_MAPPING = {
     "EUR/JPY": "EURJPY",
     "GBP/JPY": "GBPJPY",
     "USD/ZAR": "USDZAR",
-    "USD/MXN": "USDMXN"
+    "USD/MXN": "USDMXN",
+    # Crypto pairs (already in correct format)
+    "BTCUSDT": "BTCUSDT",
+    "ETHUSDT": "ETHUSDT",
+    "BNBUSDT": "BNBUSDT",
+    "ADAUSDT": "ADAUSDT",
+    "XRPUSDT": "XRPUSDT",
+    "SOLUSDT": "SOLUSDT",
+    "DOGEUSDT": "DOGEUSDT",
+    "DOTUSDT": "DOTUSDT"
 }
 
 # Pip size for each pair
 PIP_SIZE = {
+    # Forex pairs
     "EUR/USD": 0.0001,
     "GBP/USD": 0.0001,
     "USD/JPY": 0.01,
@@ -41,7 +56,16 @@ PIP_SIZE = {
     "EUR/JPY": 0.01,
     "GBP/JPY": 0.01,
     "USD/ZAR": 0.0001,
-    "USD/MXN": 0.0001
+    "USD/MXN": 0.0001,
+    # Crypto pairs (using appropriate decimal places for each)
+    "BTCUSDT": 1.0,       # $1 movements for BTC
+    "ETHUSDT": 0.1,       # $0.10 movements for ETH
+    "BNBUSDT": 0.01,      # $0.01 movements for BNB
+    "ADAUSDT": 0.0001,    # $0.0001 movements for ADA
+    "XRPUSDT": 0.0001,    # $0.0001 movements for XRP
+    "SOLUSDT": 0.01,      # $0.01 movements for SOL
+    "DOGEUSDT": 0.0001,   # $0.0001 movements for DOGE
+    "DOTUSDT": 0.001      # $0.001 movements for DOT
 }
 
 def standardize_pair_format(pair: str) -> str:
