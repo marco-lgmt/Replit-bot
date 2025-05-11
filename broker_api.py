@@ -17,7 +17,7 @@ class AllCashBrokerAPI:
     """
     
     # Base API URL for AllCashBroker
-    BASE_URL = "https://api.allcashbroker.com/v1"  # API URL actualizada según ejemplo del usuario
+    BASE_URL = "https://api.allcashbroker.com"  # API URL actualizada según información del usuario
     
     def __init__(self, api_key: str, demo_mode: bool = True):
         """
@@ -60,10 +60,28 @@ class AllCashBrokerAPI:
         Raises:
             Exception: If the API request fails
         """
-        url = f"{self.base_url}{endpoint}"
+        # Use the endpoint provided directly, ignoring old URL construction
+        if endpoint.startswith("/"):
+            url = f"{self.base_url}{endpoint}"
+        else:
+            url = f"{self.base_url}/{endpoint}"
+        
+        # For trade operations, always use the /trades/ endpoint
+        if endpoint.startswith("/signal/trade") or endpoint == "/trade":
+            url = f"{self.base_url}/trades/"
+            self.logger.info(f"Redirigiendo a endpoint correcto: {url}")
         
         response = None
         try:
+            # Asegurarnos de que los datos incluyen el modo demo si es necesario
+            if data is None:
+                data = {}
+            
+            if method in ["POST", "PUT"] and self.demo_mode and "isDemo" not in data:
+                data["isDemo"] = self.demo_mode
+            
+            self.logger.info(f"Enviando {method} a {url} con datos: {data}")
+            
             if method == "GET":
                 response = self.session.get(url, params=data)
             elif method == "POST":
@@ -74,6 +92,8 @@ class AllCashBrokerAPI:
                 response = self.session.delete(url, json=data)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
+            
+            self.logger.info(f"Respuesta: {response.status_code} - {response.text}")
             
             # Check for HTTP errors
             response.raise_for_status()
@@ -154,56 +174,45 @@ class AllCashBrokerAPI:
             if stop_loss > 0:
                 data["stopLoss"] = stop_loss
             
+            # Endpoint correcto proporcionado por el usuario
+            endpoint = "https://api.allcashbroker.com/trades/"
+            
+            # Los headers HTTP/2 no funcionan directamente con requests
+            # Usar headers standard y dejar que la librería maneje HTTP/2
             headers = {
-                "Authorization": self.api_key,  # API token sin "Bearer"
+                "Authorization": self.api_key,
                 "Content-Type": "application/json"
             }
             
-            # Probar múltiples posibles endpoints
-            endpoints = [
-                "https://api.allcashbroker.com/v1/trade/order",  # Original
-                "https://api.allcashbroker.com/v1/order/trade",  # Variación 1
-                "https://api.allcashbroker.com/trade/order",     # Variación 2
-                "https://allcashbroker.com/api/v1/trade/order",  # Variación 3
-                "https://allcashbroker.com/v1/trade/order",      # Variación 4
-                "https://api.allcash.site/v1/trade/order",       # Variación 5
-                "https://allcash.site/v1/trade/order"            # Variación 6
-            ]
+            self.logger.info(f"Enviando orden a: {endpoint}")
+            self.logger.info(f"Datos de la orden: {data}")
             
-            for endpoint in endpoints:
+            r = requests.post(
+                endpoint, 
+                json=data, 
+                headers=headers
+            )
+            
+            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            
+            if r.status_code == 200:
                 try:
-                    self.logger.info(f"Intentando con endpoint: {endpoint}")
-                    self.logger.info(f"Datos de la orden: {data}")
-                    
-                    r = requests.post(
-                        endpoint, 
-                        json=data, 
-                        headers=headers
-                    )
-                    
-                    self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
-                    
-                    if r.status_code == 200:
-                        try:
-                            response = r.json()
-                            # Convertir a string vacío u obtener el ID del orden si está disponible
-                            order_id = response.get("orderId", "")
-                            if order_id:
-                                self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
-                                return str(order_id)
-                            else:
-                                self.logger.warning("Orden aceptada pero no se recibió ID")
-                                return "orden_aceptada"
-                        except:
-                            self.logger.warning("Respuesta con formato no válido, pero estado 200")
-                            return "orden_procesada"
+                    response = r.json()
+                    # Convertir a string vacío u obtener el ID del orden si está disponible
+                    order_id = response.get("orderId", "")
+                    if order_id:
+                        self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
+                        return str(order_id)
                     else:
-                        self.logger.error(f"Error al enviar orden de compra a {endpoint}: {r.status_code} - {r.text}")
-                except Exception as e:
-                    self.logger.error(f"Error en solicitud a {endpoint}: {str(e)}")
-            
-            return ""
-                
+                        self.logger.warning("Orden aceptada pero no se recibió ID")
+                        return "orden_aceptada"
+                except:
+                    self.logger.warning("Respuesta con formato no válido, pero estado 200")
+                    return "orden_procesada"
+            else:
+                self.logger.error(f"Error al enviar orden de compra: {r.status_code} - {r.text}")
+                return ""
+        
         except Exception as e:
             self.logger.error(f"Error general en solicitud de compra: {str(e)}")
             return ""
@@ -245,55 +254,42 @@ class AllCashBrokerAPI:
             if stop_loss > 0:
                 data["stopLoss"] = stop_loss
             
+            # Endpoint correcto proporcionado por el usuario
+            endpoint = "https://api.allcashbroker.com/trades/"
+            
             headers = {
-                "Authorization": self.api_key,  # API token sin "Bearer"
+                "Authorization": self.api_key,
                 "Content-Type": "application/json"
             }
             
-            # Probar múltiples posibles endpoints
-            endpoints = [
-                "https://api.allcashbroker.com/v1/trade/order",  # Original
-                "https://api.allcashbroker.com/v1/order/trade",  # Variación 1
-                "https://api.allcashbroker.com/trade/order",     # Variación 2
-                "https://allcashbroker.com/api/v1/trade/order",  # Variación 3
-                "https://allcashbroker.com/v1/trade/order",      # Variación 4
-                "https://api.allcash.site/v1/trade/order",       # Variación 5
-                "https://allcash.site/v1/trade/order"            # Variación 6
-            ]
+            self.logger.info(f"Enviando orden a: {endpoint}")
+            self.logger.info(f"Datos de la orden: {data}")
             
-            for endpoint in endpoints:
+            r = requests.post(
+                endpoint, 
+                json=data, 
+                headers=headers
+            )
+            
+            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            
+            if r.status_code == 200:
                 try:
-                    self.logger.info(f"Intentando con endpoint: {endpoint}")
-                    self.logger.info(f"Datos de la orden: {data}")
-                    
-                    r = requests.post(
-                        endpoint, 
-                        json=data, 
-                        headers=headers
-                    )
-                    
-                    self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
-                    
-                    if r.status_code == 200:
-                        try:
-                            response = r.json()
-                            # Convertir a string vacío u obtener el ID del orden si está disponible
-                            order_id = response.get("orderId", "")
-                            if order_id:
-                                self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
-                                return str(order_id)
-                            else:
-                                self.logger.warning("Orden aceptada pero no se recibió ID")
-                                return "orden_aceptada"
-                        except:
-                            self.logger.warning("Respuesta con formato no válido, pero estado 200")
-                            return "orden_procesada"
+                    response = r.json()
+                    # Convertir a string vacío u obtener el ID del orden si está disponible
+                    order_id = response.get("orderId", "")
+                    if order_id:
+                        self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
+                        return str(order_id)
                     else:
-                        self.logger.error(f"Error al enviar orden de venta a {endpoint}: {r.status_code} - {r.text}")
-                except Exception as e:
-                    self.logger.error(f"Error en solicitud a {endpoint}: {str(e)}")
-            
-            return ""
+                        self.logger.warning("Orden aceptada pero no se recibió ID")
+                        return "orden_aceptada"
+                except:
+                    self.logger.warning("Respuesta con formato no válido, pero estado 200")
+                    return "orden_procesada"
+            else:
+                self.logger.error(f"Error al enviar orden de venta: {r.status_code} - {r.text}")
+                return ""
                 
         except Exception as e:
             self.logger.error(f"Error general en solicitud de venta: {str(e)}")
