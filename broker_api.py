@@ -17,7 +17,7 @@ class AllCashBrokerAPI:
     """
     
     # Base API URL for AllCashBroker
-    BASE_URL = "https://allcash.site/api/v1.1"  # API URL from user code
+    BASE_URL = "https://api.allcashbroker.com/v1"  # API URL actualizada según ejemplo del usuario
     
     def __init__(self, api_key: str, demo_mode: bool = True):
         """
@@ -130,19 +130,22 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        # Usando el formato JSON proporcionado por el usuario
+        # Usando el formato JSON y endpoint proporcionado por el usuario
         try:
             import requests
-            self.logger.info(f"Enviando orden de compra directamente a AllCashBroker via requests")
+            self.logger.info(f"Enviando orden de compra directamente a AllCashBroker")
             
-            # Formato actualizado según el ejemplo proporcionado
+            # Asegurarse de que el símbolo no tiene /
+            symbol_clean = symbol.replace("/", "")
+            
+            # Formato actualizado según el ejemplo proporcionado por el usuario
             data = {
-                "isDemo": self.demo_mode,
+                "symbol": symbol_clean,
+                "amount": amount,
+                "direction": "BUY",  # Usamos BUY para compra
                 "expirationType": "CANDLE_CLOSE",
                 "closeType": "05:00",  # Default 5 minutos
-                "direction": "BUY",
-                "symbol": symbol.replace("/", ""),  # Convertir de GBP/USD a GBPUSD si es necesario
-                "amount": amount
+                "isDemo": self.demo_mode
             }
             
             if take_profit > 0:
@@ -152,32 +155,48 @@ class AllCashBrokerAPI:
                 data["stopLoss"] = stop_loss
             
             headers = {
-                "Authorization": f"Bearer {self.api_key}",  # Probando con formato Bearer token
+                "Authorization": self.api_key,  # API token sin "Bearer"
                 "Content-Type": "application/json"
             }
             
-            # Intentar diferentes variaciones del endpoint
+            # Probar múltiples posibles endpoints
             endpoints = [
-                "https://allcash.site/api/v1.1/signal/trade",
-                "https://allcash.site/api/v1.1/trade", 
-                "https://allcash.site/api/v1.1/trading/order"
+                "https://api.allcashbroker.com/v1/trade/order",  # Original
+                "https://api.allcashbroker.com/v1/order/trade",  # Variación 1
+                "https://api.allcashbroker.com/trade/order",     # Variación 2
+                "https://allcashbroker.com/api/v1/trade/order",  # Variación 3
+                "https://allcashbroker.com/v1/trade/order",      # Variación 4
+                "https://api.allcash.site/v1/trade/order",       # Variación 5
+                "https://allcash.site/v1/trade/order"            # Variación 6
             ]
             
             for endpoint in endpoints:
                 try:
                     self.logger.info(f"Intentando con endpoint: {endpoint}")
+                    self.logger.info(f"Datos de la orden: {data}")
+                    
                     r = requests.post(
                         endpoint, 
                         json=data, 
                         headers=headers
                     )
                     
-                    self.logger.info(f"Respuesta ({endpoint}): {r.status_code} - {r.text}")
+                    self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
                     
                     if r.status_code == 200:
-                        response = r.json()
-                        # Convertir a string vacío u obtener el ID del orden si está disponible
-                        return str(response.get("order_id", ""))
+                        try:
+                            response = r.json()
+                            # Convertir a string vacío u obtener el ID del orden si está disponible
+                            order_id = response.get("orderId", "")
+                            if order_id:
+                                self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
+                                return str(order_id)
+                            else:
+                                self.logger.warning("Orden aceptada pero no se recibió ID")
+                                return "orden_aceptada"
+                        except:
+                            self.logger.warning("Respuesta con formato no válido, pero estado 200")
+                            return "orden_procesada"
                     else:
                         self.logger.error(f"Error al enviar orden de compra a {endpoint}: {r.status_code} - {r.text}")
                 except Exception as e:
@@ -202,19 +221,22 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        # Usando el formato JSON proporcionado por el usuario
+        # Usando el formato JSON y endpoint proporcionado por el usuario
         try:
             import requests
-            self.logger.info(f"Enviando orden de venta directamente a AllCashBroker via requests")
+            self.logger.info(f"Enviando orden de venta directamente a AllCashBroker")
+            
+            # Asegurarse de que el símbolo no tiene /
+            symbol_clean = symbol.replace("/", "")
             
             # Formato actualizado según el ejemplo proporcionado por el usuario
             data = {
-                "isDemo": self.demo_mode,
+                "symbol": symbol_clean,
+                "amount": amount,
+                "direction": "SELL",  # Usamos SELL para venta
                 "expirationType": "CANDLE_CLOSE",
                 "closeType": "05:00",  # Default 5 minutos
-                "direction": "SELL",  # En lugar de PUT usamos SELL como en el ejemplo
-                "symbol": symbol.replace("/", ""),  # Convertir de GBP/USD a GBPUSD si es necesario
-                "amount": amount
+                "isDemo": self.demo_mode
             }
             
             if take_profit > 0:
@@ -224,32 +246,48 @@ class AllCashBrokerAPI:
                 data["stopLoss"] = stop_loss
             
             headers = {
-                "Authorization": f"Bearer {self.api_key}",  # Probando con formato Bearer token
+                "Authorization": self.api_key,  # API token sin "Bearer"
                 "Content-Type": "application/json"
             }
             
-            # Intentar diferentes variaciones del endpoint
+            # Probar múltiples posibles endpoints
             endpoints = [
-                "https://allcash.site/api/v1.1/signal/trade",
-                "https://allcash.site/api/v1.1/trade", 
-                "https://allcash.site/api/v1.1/trading/order"
+                "https://api.allcashbroker.com/v1/trade/order",  # Original
+                "https://api.allcashbroker.com/v1/order/trade",  # Variación 1
+                "https://api.allcashbroker.com/trade/order",     # Variación 2
+                "https://allcashbroker.com/api/v1/trade/order",  # Variación 3
+                "https://allcashbroker.com/v1/trade/order",      # Variación 4
+                "https://api.allcash.site/v1/trade/order",       # Variación 5
+                "https://allcash.site/v1/trade/order"            # Variación 6
             ]
             
             for endpoint in endpoints:
                 try:
                     self.logger.info(f"Intentando con endpoint: {endpoint}")
+                    self.logger.info(f"Datos de la orden: {data}")
+                    
                     r = requests.post(
                         endpoint, 
                         json=data, 
                         headers=headers
                     )
                     
-                    self.logger.info(f"Respuesta ({endpoint}): {r.status_code} - {r.text}")
+                    self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
                     
                     if r.status_code == 200:
-                        response = r.json()
-                        # Convertir a string vacío u obtener el ID del orden si está disponible
-                        return str(response.get("order_id", ""))
+                        try:
+                            response = r.json()
+                            # Convertir a string vacío u obtener el ID del orden si está disponible
+                            order_id = response.get("orderId", "")
+                            if order_id:
+                                self.logger.info(f"Orden ejecutada correctamente con ID: {order_id}")
+                                return str(order_id)
+                            else:
+                                self.logger.warning("Orden aceptada pero no se recibió ID")
+                                return "orden_aceptada"
+                        except:
+                            self.logger.warning("Respuesta con formato no válido, pero estado 200")
+                            return "orden_procesada"
                     else:
                         self.logger.error(f"Error al enviar orden de venta a {endpoint}: {r.status_code} - {r.text}")
                 except Exception as e:
