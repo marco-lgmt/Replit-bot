@@ -76,8 +76,25 @@ def main():
         logger.info("Scheduler initialized with %d minute intervals", 
                    config.get("schedule_interval_minutes", 1))
         
-        # Enviar una orden de prueba en modo demo
+        # Enviar una orden de prueba en modo demo probando diferentes pares y configuraciones
         logger.info("Enviando una orden de prueba en la cuenta demo...")
+
+        # Probar con ETHUSDT como en el ejemplo proporcionado por el usuario
+        logger.info("Probando con par ETHUSDT como en el ejemplo...")
+        trade_id_crypto = broker_api.place_buy_order(
+            symbol="ETHUSDT",
+            amount=1.0,  # Una cantidad pequeña para prueba
+            take_profit=0,
+            stop_loss=0
+        )
+        
+        if trade_id_crypto:
+            logger.info(f"Orden de prueba para ETHUSDT enviada exitosamente! ID: {trade_id_crypto}")
+        else:
+            logger.warning("No se pudo enviar la orden de prueba para ETHUSDT.")
+            
+        # Probar con un par forex tradicional
+        logger.info("Probando con par de forex EUR/USD...")
         trade_id = broker_api.place_buy_order(
             symbol="EUR/USD",
             amount=1.0,  # Una cantidad pequeña para prueba
@@ -86,9 +103,9 @@ def main():
         )
         
         if trade_id:
-            logger.info(f"Orden de prueba enviada exitosamente! ID: {trade_id}")
+            logger.info(f"Orden de prueba para EUR/USD enviada exitosamente! ID: {trade_id}")
         else:
-            logger.warning("No se pudo enviar la orden de prueba.")
+            logger.warning("No se pudo enviar la orden de prueba para EUR/USD.")
         
         # Start the bot
         logger.info("Starting the forex trading bot...")

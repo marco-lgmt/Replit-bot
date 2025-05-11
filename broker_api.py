@@ -130,46 +130,64 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        # Intenta el método para la API AllCashBroker descrito por el usuario
+        # Usando el formato JSON proporcionado por el usuario
         try:
             import requests
-            self.logger.info(f"Enviando orden directamente a AllCashBroker via requests")
+            self.logger.info(f"Enviando orden de compra directamente a AllCashBroker via requests")
             
+            # Formato actualizado según el ejemplo proporcionado
             data = {
-                "amount": amount,
-                "direction": "CALL",
-                "asset": symbol,
-                "time": 5,  # Default trade duration in minutes
-                "demo": self.demo_mode
+                "isDemo": self.demo_mode,
+                "expirationType": "CANDLE_CLOSE",
+                "closeType": "05:00",  # Default 5 minutos
+                "direction": "BUY",
+                "symbol": symbol.replace("/", ""),  # Convertir de GBP/USD a GBPUSD si es necesario
+                "amount": amount
             }
             
+            if take_profit > 0:
+                data["takeProfit"] = take_profit
+            
+            if stop_loss > 0:
+                data["stopLoss"] = stop_loss
+            
             headers = {
-                "Authorization": self.api_key,
+                "Authorization": f"Bearer {self.api_key}",  # Probando con formato Bearer token
                 "Content-Type": "application/json"
             }
             
-            r = requests.post(
-                "https://allcash.site/api/v1.1/signal/trade", 
-                json=data, 
-                headers=headers
-            )
+            # Intentar diferentes variaciones del endpoint
+            endpoints = [
+                "https://allcash.site/api/v1.1/signal/trade",
+                "https://allcash.site/api/v1.1/trade", 
+                "https://allcash.site/api/v1.1/trading/order"
+            ]
             
-            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            for endpoint in endpoints:
+                try:
+                    self.logger.info(f"Intentando con endpoint: {endpoint}")
+                    r = requests.post(
+                        endpoint, 
+                        json=data, 
+                        headers=headers
+                    )
+                    
+                    self.logger.info(f"Respuesta ({endpoint}): {r.status_code} - {r.text}")
+                    
+                    if r.status_code == 200:
+                        response = r.json()
+                        # Convertir a string vacío u obtener el ID del orden si está disponible
+                        return str(response.get("order_id", ""))
+                    else:
+                        self.logger.error(f"Error al enviar orden de compra a {endpoint}: {r.status_code} - {r.text}")
+                except Exception as e:
+                    self.logger.error(f"Error en solicitud a {endpoint}: {str(e)}")
             
-            if r.status_code == 200:
-                response = r.json()
-                # Convertir a string vacío u obtener el ID del orden si está disponible
-                return str(response.get("order_id", ""))
-            else:
-                self.logger.error(f"Error al enviar orden: {r.status_code} - {r.text}")
-                return ""
+            return ""
                 
         except Exception as e:
-            self.logger.error(f"Error en solicitud directa: {str(e)}")
+            self.logger.error(f"Error general en solicitud de compra: {str(e)}")
             return ""
-        
-        # Este código ya no se ejecutará
-        return ""
     
     def place_sell_order(self, symbol: str, amount: float, take_profit: float = 0, stop_loss: float = 0) -> str:
         """
@@ -184,46 +202,64 @@ class AllCashBrokerAPI:
         Returns:
             str: Order ID if successful
         """
-        # Intenta el método para la API AllCashBroker descrito por el usuario
+        # Usando el formato JSON proporcionado por el usuario
         try:
             import requests
             self.logger.info(f"Enviando orden de venta directamente a AllCashBroker via requests")
             
+            # Formato actualizado según el ejemplo proporcionado por el usuario
             data = {
-                "amount": amount,
-                "direction": "PUT",
-                "asset": symbol,
-                "time": 5,  # Default trade duration in minutes
-                "demo": self.demo_mode
+                "isDemo": self.demo_mode,
+                "expirationType": "CANDLE_CLOSE",
+                "closeType": "05:00",  # Default 5 minutos
+                "direction": "SELL",  # En lugar de PUT usamos SELL como en el ejemplo
+                "symbol": symbol.replace("/", ""),  # Convertir de GBP/USD a GBPUSD si es necesario
+                "amount": amount
             }
             
+            if take_profit > 0:
+                data["takeProfit"] = take_profit
+            
+            if stop_loss > 0:
+                data["stopLoss"] = stop_loss
+            
             headers = {
-                "Authorization": self.api_key,
+                "Authorization": f"Bearer {self.api_key}",  # Probando con formato Bearer token
                 "Content-Type": "application/json"
             }
             
-            r = requests.post(
-                "https://allcash.site/api/v1.1/signal/trade", 
-                json=data, 
-                headers=headers
-            )
+            # Intentar diferentes variaciones del endpoint
+            endpoints = [
+                "https://allcash.site/api/v1.1/signal/trade",
+                "https://allcash.site/api/v1.1/trade", 
+                "https://allcash.site/api/v1.1/trading/order"
+            ]
             
-            self.logger.info(f"Respuesta: {r.status_code} - {r.text}")
+            for endpoint in endpoints:
+                try:
+                    self.logger.info(f"Intentando con endpoint: {endpoint}")
+                    r = requests.post(
+                        endpoint, 
+                        json=data, 
+                        headers=headers
+                    )
+                    
+                    self.logger.info(f"Respuesta ({endpoint}): {r.status_code} - {r.text}")
+                    
+                    if r.status_code == 200:
+                        response = r.json()
+                        # Convertir a string vacío u obtener el ID del orden si está disponible
+                        return str(response.get("order_id", ""))
+                    else:
+                        self.logger.error(f"Error al enviar orden de venta a {endpoint}: {r.status_code} - {r.text}")
+                except Exception as e:
+                    self.logger.error(f"Error en solicitud a {endpoint}: {str(e)}")
             
-            if r.status_code == 200:
-                response = r.json()
-                # Convertir a string vacío u obtener el ID del orden si está disponible
-                return str(response.get("order_id", ""))
-            else:
-                self.logger.error(f"Error al enviar orden de venta: {r.status_code} - {r.text}")
-                return ""
+            return ""
                 
         except Exception as e:
-            self.logger.error(f"Error en solicitud directa de venta: {str(e)}")
+            self.logger.error(f"Error general en solicitud de venta: {str(e)}")
             return ""
-        
-        # Este código ya no se ejecutará
-        return ""
     
     def close_order(self, order_id: str) -> bool:
         """
