@@ -75,14 +75,25 @@ class MarketAnalyzer:
                 # Convert traditional forex notation to TradingView format
                 tv_symbol = standardize_pair_format(symbol)
                 
+                # Determine exchange and screener based on symbol type
+                if symbol.endswith("USDT") or "USD" in symbol and "/" not in symbol:
+                    # Crypto pairs use Binance exchange and crypto screener
+                    exchange = "BINANCE"
+                    screener = "crypto"
+                    self.logger.info(f"Using crypto settings for {symbol}: {exchange}/{screener}")
+                else:
+                    # Forex pairs use FX_IDC exchange and forex screener
+                    exchange = "FX_IDC"
+                    screener = "forex"
+                
                 handler = TA_Handler(
                     symbol=tv_symbol,
-                    exchange="FX_IDC",  # Using FX_IDC exchange as in user code
-                    screener="forex",
+                    exchange=exchange,
+                    screener=screener,
                     interval=self.interval
                 )
                 handlers[symbol] = handler
-                self.logger.debug(f"Initialized handler for {symbol} ({tv_symbol})")
+                self.logger.debug(f"Initialized handler for {symbol} ({tv_symbol}) on {exchange}/{screener}")
             except Exception as e:
                 self.logger.error(f"Error initializing handler for {symbol}: {str(e)}")
         
@@ -113,10 +124,10 @@ class MarketAnalyzer:
     
     def analyze_symbol(self, symbol: str) -> Optional[TradingSignal]:
         """
-        Analyze a single forex pair and generate a trading signal.
+        Analyze a single forex pair or crypto pair and generate a trading signal.
         
         Args:
-            symbol (str): Forex pair to analyze (e.g., "GBP/USD")
+            symbol (str): Trading pair to analyze (e.g., "GBP/USD" or "BTCUSDT")
             
         Returns:
             Optional[TradingSignal]: Trading signal if conditions are met, None otherwise
@@ -127,25 +138,59 @@ class MarketAnalyzer:
         
         try:
             handler = self.handlers[symbol]
-            analysis = handler.get_analysis()
-            if analysis is None:
-                self.logger.warning(f"Received None analysis for {symbol}")
-                return None
+            # Add debug info
+            self.logger.info(f"Analyzing {symbol} with handler: exchange={handler.exchange}, screener={handler.screener}, symbol={handler.symbol}")
+            
+            try:
+                analysis = handler.get_analysis()
+                if analysis is None:
+                    self.logger.warning(f"Received None analysis for {symbol}")
+                    return None
+            except Exception as e:
+                self.logger.error(f"Error getting analysis for {symbol}: {str(e)}")
+                if "Exchange or symbol not found" in str(e):
+                    # Try with different exchanges for crypto pairs
+                    if symbol.endswith("USDT"):
+                        alt_exchanges = ["KUCOIN", "COINBASE", "FTX"]
+                        for alt_exchange in alt_exchanges:
+                            try:
+                                self.logger.info(f"Trying alternate exchange {alt_exchange} for {symbol}")
+                                alt_handler = TA_Handler(
+                                    symbol=handler.symbol,
+                                    exchange=alt_exchange,
+                                    screener="crypto",
+                                    interval=handler.interval
+                                )
+                                analysis = alt_handler.get_analysis()
+                                if analysis is not None:
+                                    self.logger.info(f"Successfully got data from {alt_exchange} for {symbol}")
+                                    handler = alt_handler
+                                    self.handlers[symbol] = alt_handler  # Update the handler
+                                    break
+                            except Exception as inner_e:
+                                self.logger.warning(f"Failed with {alt_exchange} for {symbol}: {str(inner_e)}")
+                                continue
+                if analysis is None:
+                    raise Exception(f"Could not get data for {symbol} on any exchange")
                 
             # Extract indicators
             indicators = analysis.indicators
+            self.logger.info(f"Available indicators for {symbol}: {list(indicators.keys())}")
             
             # Get RSI value
             rsi = indicators.get("RSI", None)
             if rsi is None:
                 rsi = indicators.get(f"RSI{self.rsi_period}", None)
+                self.logger.debug(f"Using RSI{self.rsi_period} for {symbol}: {rsi}")
             
             # Get EMA values
             ema_fast = indicators.get(f"EMA{self.ema_fast_period}", None)
             ema_slow = indicators.get(f"EMA{self.ema_slow_period}", None)
             
+            self.logger.debug(f"Indicators for {symbol}: RSI={rsi}, EMA{self.ema_fast_period}={ema_fast}, EMA{self.ema_slow_period}={ema_slow}")
+            
             if rsi is None or ema_fast is None or ema_slow is None:
-                self.logger.warning(f"Missing indicator data for {symbol}")
+                self.logger.warning(f"Missing indicator data for {symbol}. RSI: {rsi}, EMA Fast: {ema_fast}, EMA Slow: {ema_slow}")
                 return None
             
             # Get current price
