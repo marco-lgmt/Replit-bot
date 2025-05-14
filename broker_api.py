@@ -6,9 +6,12 @@ Handles communication with the broker's API.
 import logging
 import json
 import time
-from typing import Dict, Any, Optional, List
+import jwt
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Tuple
 import requests
 from requests.exceptions import RequestException
+from config import update_config, load_config
 
 class AllCashBrokerAPI:
     """
@@ -32,9 +35,12 @@ class AllCashBrokerAPI:
         self.demo_mode = demo_mode
         self.session = requests.Session()
         
+        # Verificar y renovar el token si es necesario
+        valid_token = self._verify_and_renew_token(api_key)
+        
         # Como el token ya incluye "Bearer", lo usamos tal cual
         self.session.headers.update({
-            "Authorization": api_key,  # El token JWT ya incluye "Bearer"
+            "Authorization": valid_token,  # El token JWT ya incluye "Bearer"
             "Content-Type": "application/json",
             "Accept": "application/json"
         })
@@ -46,6 +52,49 @@ class AllCashBrokerAPI:
             self.logger.info("API initialized in DEMO mode")
         else:
             self.logger.warning("API initialized in LIVE trading mode")
+            
+    def _verify_and_renew_token(self, token: str) -> str:
+        """
+        Verify if the JWT token is valid and renew it if it's close to expiration.
+        
+        Args:
+            token (str): JWT token to verify
+            
+        Returns:
+            str: Valid JWT token (either the original or a renewed one)
+        """
+        try:
+            # Si el token no comienza con "Bearer ", añadirlo
+            actual_token = token
+            if token.startswith("Bearer "):
+                actual_token = token[7:]
+            
+            # Decodificar el token sin verificar la firma
+            decoded = jwt.decode(actual_token, options={"verify_signature": False})
+            
+            # Obtener tiempo de expiración
+            exp_timestamp = decoded.get('exp', 0)
+            expiration_time = datetime.fromtimestamp(exp_timestamp)
+            current_time = datetime.now()
+            
+            # Renovar si expira en menos de 1 hora
+            if expiration_time <= current_time + timedelta(hours=1):
+                self.logger.info("Token expirará pronto. Actualizando a nuevo token.")
+                # Actualizar con el token proporcionado por el usuario
+                new_token = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjAxSlNTWFdGOEc4MDhIRVYyS0RFR1dKWFQyIiwibGFuZ3VhZ2UiOiJlcyIsIm5hbWUiOiJNaXJpYW4gbGFyZ28iLCJpbXBlcnNvbmF0ZSI6ZmFsc2UsImxvZ2luSWQiOiIwMUpWNTQ2RThKMUdOTjFHRjQ2M1g1R1cyUSIsImVtYWlsIjoibWlyaWFubGFyZ28yMUBnbWFpbC5jb20iLCJ0ZW5hbnRJZCI6IjAxSlNGQk1INFZCRzQxMDFUUzQ0Ulo4MzdBIiwiYWN0aXZlIjp0cnVlLCJiYW5uZWQiOmZhbHNlLCJpYXQiOjE3NDcxNTAxMjUsImV4cCI6MTc0NzE5MzMyNSwiaXNzIjoiQVVUSC1UUkFERS1PUFRJT04ifQ.o9dBj4e-wmfYlWAghPGHj7kAts_eB2dkPyaCq8KtsyI"
+                
+                # Actualizar en la configuración
+                update_config("api_key", new_token)
+                
+                return new_token
+            else:
+                self.logger.info(f"Token válido hasta {expiration_time.strftime('%Y-%m-%d %H:%M:%S')}")
+                return token
+                
+        except Exception as e:
+            self.logger.error(f"Error al verificar el token JWT: {str(e)}")
+            # En caso de error, devolver el token original
+            return token
     
     def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None) -> Dict[str, Any]:
         """
@@ -62,6 +111,9 @@ class AllCashBrokerAPI:
         Raises:
             Exception: If the API request fails
         """
+        # Verificar y renovar el token antes de cada solicitud
+        self._check_and_refresh_token()
+        
         # Use the endpoint provided directly, ignoring old URL construction
         if endpoint.startswith("/"):
             url = f"{self.base_url}{endpoint}"
@@ -105,12 +157,28 @@ class AllCashBrokerAPI:
             
             # Check for API errors
             if "error" in result:
+                error_message = result.get('error', '')
+                # Si el error es por token expirado, intentar renovar y reintentar
+                if "token" in error_message.lower() and "expired" in error_message.lower():
+                    self.logger.warning("Token expirado detectado en respuesta. Renovando token y reintentando.")
+                    self._renew_token_now()
+                    # Reintentar la solicitud recursivamente
+                    return self._make_request(method, endpoint, data)
+                    
                 raise Exception(f"API error: {result['error']}")
             
             return result
             
         except RequestException as e:
             self.logger.error(f"API request error: {str(e)}")
+            # Verificar si el error está relacionado con autenticación
+            if hasattr(e, 'response') and e.response is not None:
+                if e.response.status_code in [401, 403]:
+                    self.logger.warning("Error de autenticación. Intentando renovar token y reintentar.")
+                    self._renew_token_now()
+                    # Reintentar la solicitud recursivamente
+                    return self._make_request(method, endpoint, data)
+            
             raise Exception(f"API request failed: {str(e)}")
         except json.JSONDecodeError as jde:
             if response:
@@ -119,6 +187,48 @@ class AllCashBrokerAPI:
         except Exception as e:
             self.logger.error(f"Unexpected error in API request: {str(e)}")
             raise
+            
+    def _check_and_refresh_token(self) -> None:
+        """
+        Verifica el estado del token actual y lo renueva si es necesario.
+        Esta función se llama antes de cada solicitud a la API.
+        """
+        try:
+            current_token = self.session.headers.get("Authorization", "")
+            # Si no hay token en la sesión, usar el de la instancia
+            if not current_token:
+                current_token = self.api_key
+                
+            # Verificar y renovar si es necesario
+            valid_token = self._verify_and_renew_token(current_token)
+            
+            # Si el token cambió, actualizar la sesión y la instancia
+            if valid_token != current_token:
+                self.logger.info("Actualizando token en la sesión")
+                self.session.headers.update({"Authorization": valid_token})
+                self.api_key = valid_token
+        except Exception as e:
+            self.logger.error(f"Error al verificar o renovar token: {str(e)}")
+            
+    def _renew_token_now(self) -> None:
+        """
+        Fuerza la renovación del token inmediatamente.
+        Se utiliza cuando se detecta un error de autenticación.
+        """
+        try:
+            # Actualizar con el token proporcionado por el usuario
+            new_token = "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjAxSlNTWFdGOEc4MDhIRVYyS0RFR1dKWFQyIiwibGFuZ3VhZ2UiOiJlcyIsIm5hbWUiOiJNaXJpYW4gbGFyZ28iLCJpbXBlcnNvbmF0ZSI6ZmFsc2UsImxvZ2luSWQiOiIwMUpWNTQ2RThKMUdOTjFHRjQ2M1g1R1cyUSIsImVtYWlsIjoibWlyaWFubGFyZ28yMUBnbWFpbC5jb20iLCJ0ZW5hbnRJZCI6IjAxSlNGQk1INFZCRzQxMDFUUzQ0Ulo4MzdBIiwiYWN0aXZlIjp0cnVlLCJiYW5uZWQiOmZhbHNlLCJpYXQiOjE3NDcxNTAxMjUsImV4cCI6MTc0NzE5MzMyNSwiaXNzIjoiQVVUSC1UUkFERS1PUFRJT04ifQ.o9dBj4e-wmfYlWAghPGHj7kAts_eB2dkPyaCq8KtsyI"
+            
+            # Actualizar en la configuración
+            update_config("api_key", new_token)
+            
+            # Actualizar en la sesión actual
+            self.session.headers.update({"Authorization": new_token})
+            self.api_key = new_token
+            
+            self.logger.info("Token renovado forzosamente")
+        except Exception as e:
+            self.logger.error(f"Error al renovar token forzosamente: {str(e)}")
     
     def get_account_info(self) -> Dict[str, Any]:
         """
@@ -308,7 +418,7 @@ class AllCashBrokerAPI:
         Returns:
             bool: True if the order was modified successfully
         """
-        data = {
+        data: Dict[str, Any] = {
             "isDemo": self.demo_mode
         }
         
